@@ -1,0 +1,168 @@
+//Qué Me Pongo-Quinta Iteración
+
+// Como usuarie de QuéMePongo:
+
+// 1) Quiero poder manejar varios guardarropas para separar mis prendas según diversos criterios (ropa de viaje, ropa de entrecasa, etc). 
+
+En este apartado decidi crear la clase Guardarropa.
+
+class Guardarropa
+{
+	List<Prenda> prendas
+	
+	void agregarPrenda(Prenda prenda){prendas.add(prenda);}
+	void eliminarPrenda(Prenda prenda){prendas.remove(prenda);}
+}
+
+// 2) Quiero poder crear guardarropas compartidos con otros usuaries (ej, ropa que comparto con mi hermane). 
+
+Para agregar el soporte de guardarropas compartido, primero habia evaluado el hacer dos clases separadas, un GuardarrpaSimple y un GuardarropaCompartido.
+
+class GuardarropaSimple
+{
+	List<Prenda> prendas
+}
+
+class GuardarropaCompartido
+{
+	List<Prenda> prendas
+	Usuario dueño
+	List<Usuario> otros
+}
+ 
+ Pero finalmente me decidi por hacer un solo guardarropa, si es compartido tendra la lista de "otros" vacia, y es simple el compartir 
+ o dejar de compartir el guardarropa.
+ 
+ class Guardarropa
+{
+	List<Prenda> prendas
+	Usuario dueño
+	List<Usuario> otros
+	
+	public Guardarropa(Usuario dueño, List<Prenda> prendas){}
+	public Guardarropa(Usuario dueño, List<Usuario> otros, List<Prenda> prendas){}
+	
+	//Esta implementacion nos permite convertir un guardarropas simple en uno compartido facilmente
+	//Agrego el dueño a la mayoria de metodos para solo darle la posibilidad de agregar o quitar personas o prendas del mismo
+	//sin sugerir ya que el guardarropas le pertenece.
+		
+	public void agregarUsuario(Usuario dueño, Usuario otro)
+	{otros.add(otro);}
+	
+	//Tambien nos permite dejar de compartirlo
+	
+	public void dejarDeCompartir(Usuario usuario)
+	{otros=NULL;}
+}
+
+// 3) Quiero que otro usuario me proponga tentativamente agregar una prenda al guardarropas.
+
+// 4) Quiero que otro usuario me proponga tentativamente quitar una prenda del guardarropas.
+
+Para estos dos items decidi crear la clase sugerencia, que servira tanto para sugerir agregar como quitar una prenda.
+
+class Sugerencia
+{
+	Prenda prenda
+	Guardarropa guardarropa
+	TipoSugerencia tipoSugerencia
+	Estado Estado 
+	//En primer instancia el estado sera nulo o (Enum) NO_EVALUADO (podrian ser tambien: ACEPTADO, RECHAZADO)
+	
+	/*
+		La sugerencia tendra:	el tipo de sugerencia AGREGAR/ELIMINAR (Enum)
+								La prenda en cuestion a la cual se refiere dicha sugerencia
+								El guardarropas donde se encuentra dicha prenda 
+								
+	*/
+	public Sugerencia(TipoSugerencia tipoSugerencia, Prenda prenda,Guardarropa guardarropa){}
+}
+
+Para estos requerimientos decidi modificar el guardarropas. 
+Primero habia pensado en tener las sugerencias dentro del guardarropas, pero quedaba medio extraño el acceso del usuario a dichas sugerencias.
+Por esto mismo decidi crear un Singleton SugerenciaRepository, que se encargara de crear, almacenar y gestionar todas las sugerencias.
+No tiene sentido tampoco que la clase guardarropas gestione sus sugerencias.
+
+class Guardarropa
+{
+	List<Prenda> prendas
+	Usuario dueño
+	List<Usuario> otros
+	
+	//Nuevamente por un tema de que no se especifica que si un guardarropas compartido todas las personas que lo comparten
+	//tendran los mismos "privilegios" decidi distinguir entre dueño y otros.
+	
+	void agregarPrenda(Usuario usuario, Prenda prenda)
+	{ 
+		if (usuario==dueño) {prendas.add(prenda);}
+		else {SugerenciaRepository.crearNuevaSugerencia(ELIMINAR, prenda, self);}
+	}
+
+	void quitarPrenda(Usuario usuario, Prenda prenda)
+	{ 
+		if (usuario==dueño){prendas.remove(prenda);}
+		else {SugerenciaRepository.crearNuevaSugerencia(ELIMINAR, prenda, self);}
+	}
+}
+
+class SugerenciaRepository
+{
+	//SINGLETON
+	List<Sugerencia> sugerencias;
+	
+	crearNuevaSugerencia(TipoSugerencia tipoSugerencia, Prenda prenda, Guardarropa guardarropa)
+	{ sugerencias.add(new Sugerencia(ELIMINAR, prenda, guardarropas));}
+}
+
+// 5) Qecesito ver todas las propuestas de modificación (agregar o quitar prendas) del guardarropas y poder aceptarlas o rechazarlas..
+Para que se pueda cambiar el estado de la sugerencia agrego el metodo evaluarSugerencia
+
+class Sugerencia
+{
+	Prenda prenda
+	Guardarropa guardarropa
+	TipoSugerencia tipoSugerencia
+	Estado estado
+
+	public Sugerencia(TipoSugerencia tipoSugerencia, Prenda prenda,Guardarropa guardarropa){}
+	
+	public void evaluarSugerencia(Estado estado){this.estado=estado};
+}
+
+El usuario accedera a las sugerencias a traves del SugerenciaRepository
+
+class SugerenciaRepository
+{
+	//SINGLETON
+	List<Sugerencia> sugerencias;
+	
+	crearNuevaSugerencia(TipoSugerencia tipoSugerencia, Prenda prenda, Guardarropa guardarropa)
+	{ sugerencias.add(new Sugerencia(ELIMINAR, prenda, guardarropas));}
+	
+	public List<Prenda> obtenerSugerenciasXGuardarropa(Guardarropa unGuardarropa)
+	{return sugerencias.filter({sugerencia->sugerencia.getGuardarropa == unGuardarropa});}
+	
+	//Una vez que el usuario obtenga la lista de sugerencias podra evaluarlas.
+}
+
+// 6) Quiero poder deshacer las propuestas de modificación que haya aceptado.
+
+En este caso podriamos agregar un metodo al sugerenciaRepository para acceder a las sugerencias cuyo estado sea ACEPTADO
+
+class SugerenciaRepository
+{
+	//SINGLETON
+	List<Sugerencia> sugerencias;
+	
+	crearNuevaSugerencia(TipoSugerencia tipoSugerencia, Prenda prenda, Guardarropa guardarropa)
+	{ sugerencias.add(new Sugerencia(ELIMINAR, prenda, guardarropas));}
+	
+	public List<Prenda> obtenerSugerenciasXGuardarropa(Guardarropa unGuardarropa)
+	{return sugerencias.filter({sugerencia->sugerencia.getGuardarropa == unGuardarropa});}
+
+	pubic List<Prenda> obtenesSugerenciasAceptadas(//Podria tambien ser de un guardarropas especifico)
+	{return sugerencias.filter({sugerencia->sugerencia.getEstado == ACEPTADO});}
+	
+	//Una vez que el usuario obtenga las sugerencias aceptadas podria deshacer el ACEPTADO (setear un NO_EVALUADO/RECHAZADO)
+}
+	
